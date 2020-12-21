@@ -1,0 +1,189 @@
+Global:
+  # Add filters common to all datasets as follows:
+  # start: ..... (DD/MM/YY - start date of data )
+  # end: ....... (DD/MM/YY - end date of data)
+  # regions: ... (list of regions to consider LADs for) 
+
+  inference_period:
+    - 2020-04-03
+    - 2020-09-01
+  time_step: 1.
+  prediction_period:
+    - 2020-02-19
+    - 2020-08-01
+    
+  # prepend output file ids with either a set string and/or the current date
+  # To load from a specific date, set the prependID_Str to include that
+  # e.g. if you want to load run 'Dummy' from date 2020-12-14, set:
+    # prependID: True
+    # prependID_Str: 2020-12-14_Dummy
+    # prependDate: False
+  prependID: False
+  prependID_Str: 2020-12-14_Dummy
+  prependDate: False
+  # If true, loads the example covariate data provided by Chris
+  # only called in CovidPipeline.GatherData
+  # Good for testing, ensure false otherwise
+  useExampleData: False
+  
+# (Optional) A subset of LADs can be defined 
+# If not specified here, they will be read using GetData.AreaCodeData from
+# the file specified below
+# lad19cds: ['E06000006', 'E06000007', 'E06000008', 'E06000009', 'E06000049', 'E06000050', 'E07000027', 'E07000029',
+#  'E07000031', 'E07000037', 'E07000117', 'E07000118', 'E07000119', 'E07000120', 'E07000121', 'E07000122',
+#  'E07000123', 'E07000124', 'E07000125', 'E07000126', 'E07000127', 'E07000128', 'E07000163', 'E07000165',
+#  'E07000166', 'E08000001', 'E08000002', 'E08000003', 'E08000004', 'E08000005', 'E08000006', 'E08000007',
+#  'E08000008', 'E08000009', 'E08000010', 'E08000011', 'E08000012', 'E08000013', 'E08000014', 'E08000015',
+#  'E08000032', 'E08000033', 'E08000034']
+
+# Options for the Inspect node
+Inspect:
+  show_plots: False # whether to display plots as the pipeline progresses (not recommended)
+  save_plots: True  # whather to save plots
+  plot_dir: plots   # where to save plots
+  exampleLAD: E06000001 # which LAD to use as a test sample
+
+GenerateOutput:
+  # Set outputs to True or False
+  posterior: True  # from inference.py
+  geopackage: True # from summary.py
+  summary: True    # from summary.py
+  # When reading input data, we can store the data in such a way that
+  # it can be loaded later just by using pd.read_csv()
+  storeInputs: True
+  scrapedDataDir: scraped_data
+  storeProcessedInputs: True
+  
+# Inference data
+# haven't seen where these are used yet
+ModelParameters:
+  beta1: 0.6    # R0 2.4
+  beta2: 0.5   # Contact with commuters 1/3rd of the time
+  beta3: 1.0    # lockdown vs normal
+  nu: 0.5      # E -> I transition rate
+  gamma: 0.25   # I -> R transition rate
+
+mcmc:
+  dmax: 21
+  nmax: 50
+  m: 1
+  occult_nmax: 15
+  num_event_time_updates: 5
+  num_bursts: 10
+  num_burst_samples: 100
+  thin: 1
+  prior:
+    gamma:
+      concentration: 2.0
+      rate: 4.0
+  
+  
+# Data source options
+# These specify what to load for each option type
+# in general:
+  # input: the filetype or external source (e.g. url). This specifies the data loader/
+  # address: the location of the input
+  # format: how to process the data once loaded. 
+  #         If data is already in the correct format, set processed, and nothing will be done to it
+  # output: where to save the processed version (if GenerateOuput:storeInputs is True)
+# These are mostly used by GetData, but some addresses are used elsewhere for saving
+
+# Area code data
+# This is a list of all LADs to be processed
+# A URL sourtce of this data is at 
+# https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/LAD_DEC_2019_UK_NC/FeatureServer/0/query?where=1%3D1
+# an example scarped json is at
+AreaCodeData:
+  input: json # url, json, csv, or processed_csv
+  address: scraped_data/Scraped_20.12.15_AreaCodeData_ONS.json
+  format: ons # ons
+  output: processed_data/processed_lad19cd.csv
+  regions:
+    - E     # (England)
+    #- S    # (Scotland)
+    #- N    # (Northern Ireland)
+    #- W    # (Wales)
+
+CasesData:
+  # Add filters for the PHE line list dataset as follows:
+  # pillars: ... (select which testing pillars to use, "Pillar 1" and/or "Pillar 2")
+  # measure: ... (reporting metric to use - "specimen" or "report")
+  input: csv # url, csv, or processed
+  address: data/Anonymised Combined Line List 20201016.csv
+  format: phe # phe, lancs
+  pillars:
+    - Pillar 1
+    - Pillar 2
+  measure: specimen # specimen, or report
+  output: processed_data/processed_cases.csv
+
+# This is the time series multiplier data
+# A url source of this is at:
+# https://www.gov.uk/government/statistics/transport-use-during-the-coronavirus-covid-19-pandemic
+# an example scraped ods file is provided at /data/Scraped_20.12.15_MobilityTrendData_DFT.ods
+MobilityTrendData:
+  input: ods # url, ods, or processed
+  address: scraped_data/Scraped_20.12.15_MobilityTrendData_DFT.ods
+  format: dft # dft, lancs
+  output: processed_data/processed_transport.csv
+
+# This is the LAD population data
+# A url source for this is at:
+# https://www.ons.gov.uk/file?uri=%2fpeoplepopulationandcommunity%2fpopulationandmigration%2fpopulationestimates%2fdatasets%2fpopulationestimatesforukenglandandwalesscotlandandnorthernireland%2fmid2019april2019localauthoritydistrictcodes/ukmidyearestimates20192019ladcodes.xls
+# an example scraped xls is provided at /data/Scraped_20.12.15_PopulationData_ONS.xls
+PopulationData:
+  input: xls # url, xls, or processed
+  address: scraped_data/Scraped_20.12.15_PopulationData_ONS.xls
+  format: ons # ons, lancs
+  output: processed_data/processed_population.csv
+
+# This is the commuting matrix between each LAD
+# A url source for this is at:
+# https://www.nomisweb.co.uk/output/census/2011/wu03uk_la.zip
+# an example scraped csv is provided at /data/Scraped_20.12.15_InterLadCommuteData_Nomis.csv
+InterLadCommuteData:
+  input: csv # url, csv, or processed
+  address: scraped_data/Scraped_20.12.15_InterLadCommuteData_Nomis.csv
+  format: nomis # nomis, lancs
+  output: processed_data/processed_commute.csv
+
+# This is the Tier restirction data
+TierData:
+  input: csv
+  address: data/tidyLAD19Tiers.csv
+  format: tidy # lancs_tidy (or tidy) is as-sent by Chris, lancs_raw is as read by covid.data.read_tier_restriction_data
+  # these states are used to produce the tier xarray
+  # no other states are considered
+  lockdown_states: ["two", "three", "dec_two", "dec_three"]
+  
+ExampleFiles:
+  # These are the files provided by Chris for development purposes
+  # The pipeline uses these if Global:useExampleData is True
+  # Everything should work with these, so good for testing
+  MobilityTrendData: data/example_traffic_flow.csv
+  PopulationData: data/example_population.csv
+  InterLadCommuteData: data/example_mobility.csv
+  CasesData: data/example_cases.csv
+  TierData: data/tidyLAD19Tiers.csv
+  
+  
+# Output location options
+PosteriorData:
+  format: h5
+  address: data/posterior.h5
+  
+SummaryData:
+  input: posterior # posterior or processed
+  address: Data/summary.p
+  format: pickle
+
+RtQuantileData:
+  address: data/national_rt.xlsx
+  format: xls
+
+GeoSummary:
+  address: data/output.gpkg
+  template: data/uk_clip.gpkg
+  
+
+  
